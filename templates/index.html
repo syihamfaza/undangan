@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="icon.jpg" type="image/png" />
+  <title>Faza Mode Dev</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 200px;
+      background-color: #343a40;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding-top: 2em;
+    }
+
+    .sidebar button {
+      background: none;
+      color: white;
+      border: none;
+      padding: 1em;
+      text-align: left;
+      font-size: 16px;
+      cursor: pointer;
+      border-left: 4px solid transparent;
+    }
+
+    .sidebar button:hover,
+    .sidebar button.active {
+      background-color: #495057;
+      border-left: 4px solid #28a745;
+    }
+
+    .content {
+      flex-grow: 1;
+      padding: 2em;
+      overflow-y: auto;
+      text-align: center;
+      justify-content: center;
+      display: flex;
+    }
+
+    button.action-btn {
+      padding: 1em 2em;
+      font-size: 16px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button.action-btn:hover {
+      background-color: #218838;
+    }
+
+    pre {
+      background: #111;
+      color: #0f0;
+      text-align: left;
+      margin-top: 1.5em;
+      padding: 1em;
+      height: 400px;
+      overflow-y: auto;
+      border-radius: 8px;
+      max-width: 800px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .page {
+        display: none;
+        width: 100%;
+        max-width: 800px;
+    }
+
+    .page.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <button id="btnHome" onclick="showPage('home')">🔍 Cek Stock</button>
+    <button id="btnMap" onclick="showPage('map')">📋 Input MAP</button>
+  </div>
+
+  <div class="content">
+    <div id="home" class="page active">
+      <h1>Cek Stok LPG</h1>
+      <label for="sheetIndex">Worksheet ke-:</label>
+      <input type="number" id="sheetIndex" min="0" max="10" value="4">
+      <br><br>
+      <button id="startButton" class="action-btn" onclick="startProcess()">Mulai Cek Stok</button>
+      <button class="action-btn" onclick="stopProcess()">Stop Proses</button>
+      <pre id="log_home">Menunggu proses dimulai...</pre>
+    </div>
+
+    <div id="map" class="page">
+      <h1>Buat Laporan MAP</h1>
+      <label for="sheet_index">Sheet ke:</label>
+      <input type="number" id="sheet_index" min="0" max="10" value="5">
+      <br><br>
+      <button class="action-btn" onclick="startMap()">Jalankan</button>
+      <button class="action-btn" onclick="stopProcess()">Stop Proses</button>
+      <pre id="log_map">Menunggu proses map dimulai...</pre>
+    </div>
+  </div>
+
+    <script>
+        const socket = io();
+        const logHome = document.getElementById("log_home");
+        const logMap = document.getElementById("log_map");
+        const startButton = document.getElementById("startButton");
+
+        function showPage(id) {
+        // aktifkan konten
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+
+        // aktifkan tombol menu sidebar
+        document.querySelectorAll('.sidebar button').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`btn${id.charAt(0).toUpperCase() + id.slice(1)}`).classList.add('active');
+        }
+
+        function appendLog(target, message) {
+            target.innerHTML += message + "\n";
+            target.scrollTop = target.scrollHeight;
+        }
+
+        function startProcess() {
+            const index = parseInt(document.getElementById("sheetIndex").value);
+            logHome.innerHTML = "⏳ Memulai proses...\n";
+            startButton.disabled = true;
+            socket.emit("start", { sheet_index: index });
+        }
+
+        function stopProcess() {
+            socket.emit("stop");
+        }
+
+        // Update listener sesuai backend
+        socket.on("checker_log", (message) => {
+            appendLog(logHome, message);
+        });
+
+        socket.on("checker_done", () => {
+            appendLog(logHome, "✅ Proses selesai.");
+            startButton.disabled = false;
+        });
+
+        socket.on("error", (message) => {
+            appendLog(logHome, "❌ ERROR: " + message);
+            startButton.disabled = false;
+        });
+
+        // bagian untuk map
+        function startMap() {
+            const index = parseInt(document.getElementById("sheet_index").value);
+            logMap.innerHTML = "⏳ Memulai proses map...\n";
+            socket.emit("map", { sheet_index: index });
+        }
+        function stopMap() {
+            socket.emit("stop");
+        }
+
+        socket.on("map_log", (message) => {
+            appendLog(logMap, message);
+        });
+
+        socket.on("map_done", () => {
+            appendLog(logMap, "✅ Proses map selesai.");
+        });
+    </script>
+</body>
+</html>
